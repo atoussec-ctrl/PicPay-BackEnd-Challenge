@@ -23,6 +23,7 @@ REQUIRED_DOCUMENTS = {
         (10, "runbook"),
         (11, "contratos-integracoes"),
         (12, "referencias-e-evidencias"),
+        (13, "status-implementacao"),
     )
 } | {Path("README.md"), Path("docs/openapi.yaml")}
 
