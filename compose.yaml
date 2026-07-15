@@ -30,8 +30,6 @@ services:
       POSTGRES_DB: transfers
       POSTGRES_USER: transfers
       POSTGRES_PASSWORD: transfers
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:

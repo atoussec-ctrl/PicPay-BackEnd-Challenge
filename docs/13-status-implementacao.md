@@ -1,73 +1,81 @@
 # Status da implementação
 
 - **Data-base:** 15/07/2026
-- **Marco atual:** Onda 1 — núcleo financeiro puro
+- **Marco atual:** Onda 2 — fundação de persistência
 
 ## 1. Resumo
 
-A Onda 1 entrega o domínio financeiro imutável, independente de framework e criado
-por TDD. O incremento modela dinheiro decimal exato, usuários, carteiras,
-identificadores, políticas de elegibilidade, transferência e partidas de ledger.
+A Onda 2 entrega a primeira migration Flyway do schema financeiro e adapters JDBC
+para leitura de usuários e carteiras. Os testes usam PostgreSQL 18 real via
+Testcontainers e comprovam constraints, mapeamento e ordem canônica dos locks.
 
-O fluxo valida que somente cliente ativo envia, ambos os participantes estão ativos,
-as carteiras pertencem aos usuários, o saldo é suficiente e cada transferência gera
-um débito e um crédito de sinais opostos. Falhas preservam as carteiras originais.
+O banco agora protege unicidade, enums, identificadores, saldo não negativo,
+quantias positivas, ledger balanceado e imutabilidade dos lançamentos. Valores
+especiais `NaN` são rejeitados explicitamente nas três colunas monetárias.
 
 ## 2. Backlog concluído
 
 | Tarefa | Estado | Evidência |
 |---|---|---|
-| T-101 | concluída | `Money` usa `BigDecimal`, escala canônica 2 e limite `NUMERIC(19,2)` |
-| T-102 | concluída | `User`, `UserType`, `UserStatus` e fixtures determinísticas |
-| T-103 | concluída | `TransferCommand`, IDs numéricos positivos e ULID canônico |
-| T-104 | concluída | `TransferPolicy` valida participantes, status e tipo do pagador |
-| T-105 | concluída | `Wallet` imutável impede saldo negativo, overflow e mutação parcial |
-| T-106 | concluída | `Transfer` executa débito/crédito e cria ledger balanceado imutável |
-| T-502 | concluída | JaCoCo global mínimo de 95% e domínio crítico em 100% de linhas/branches |
-| T-503 | concluída | PIT integrado ao `check`, com mínimo de 80% e execução observada em 100% |
+| T-101–T-106 | concluídas | núcleo financeiro puro e imutável |
+| T-301 | concluída | migration core, portas, adapters JDBC e testes PostgreSQL reais |
+| T-302 | parcial | portas de usuários/carteiras e lock ordenado; preflight ainda pendente |
+| T-303 | parcial | trigger diferido do ledger pronto; unit of work e rollback pendentes |
+| T-502 | concluída | JaCoCo global mínimo de 95% e domínio crítico em 100% |
+| T-503 | concluída | PIT integrado ao `check`, com 60/60 mutações eliminadas |
 
-A Onda 0 permanece concluída: Java 25, Spring Boot 4.1, Gradle, PostgreSQL,
-Flyway, Docker Compose, WireMock, arquitetura hexagonal e CI executável.
+## 3. Integridade implementada
 
-## 3. Evidência TDD
+- `users`: CPF/CNPJ normalizado, e-mail normalizado, tipo e status válidos;
+- `wallets`: uma carteira por usuário, `NUMERIC(19,2)`, saldo e versão não negativos;
+- `transfers`: ULID canônico, participantes distintos, BRL, valor positivo e status final;
+- `ledger_entries`: um débito e um crédito positivos por transferência;
+- trigger diferido: valores iguais, carteiras corretas e duas partidas obrigatórias;
+- trigger de imutabilidade: `UPDATE` e `DELETE` de lançamentos são recusados;
+- `FOR UPDATE`: carteiras são retornadas em ordem crescente de `user_id`.
+- PostgreSQL no Compose: acessível somente pela rede interna, sem porta no host.
 
-1. RED: `compileTestJava` falhou porque os tipos financeiros ainda não existiam.
-2. GREEN: a implementação mínima tornou os cenários de domínio aprovados.
-3. REFACTOR: asserções foram centralizadas e os objetos permaneceram imutáveis.
-4. MUTATE: um teste inicialmente aceitava sinais invertidos no ledger; o cenário foi
-   fortalecido para exigir débito negativo e crédito positivo.
+## 4. Evidência TDD
 
-## 4. Quality gates executados
+1. RED: `compileTestJava` falhou pela ausência das portas e adapters especificados.
+2. GREEN: migration e repositórios tornaram os testes PostgreSQL aprovados.
+3. REFACTOR: classes Spring deixaram de ser `final` para permitir proxies de
+   tradução de exceções sem comprometer as portas.
+4. HARDEN: casos parametrizados passaram a provar cada constraint e o bloqueio de
+   `NaN`, além de valores negativos comuns.
+
+## 5. Pirâmide e quality gates
 
 | Gate | Resultado observado |
 |---|---|
-| `./gradlew spotlessApply check --no-daemon --stacktrace` | aprovado |
-| JUnit | 60 testes, 0 falhas, 0 erros e 0 ignorados |
-| JaCoCo do domínio | 164/164 linhas e 44/44 branches, ambos 100% |
-| PIT do domínio | 60/60 mutações eliminadas, cobertura e test strength de 100% |
+| `test` | 59 testes unitários, 0 falhas, 0 erros e 0 ignorados |
+| `integrationTest` | 25 testes PostgreSQL/Spring, 0 falhas, 0 erros e 0 ignorados |
+| JaCoCo agregado | 201/201 linhas e 44/44 branches, ambos 100% |
+| PIT do domínio | 60/60 mutações eliminadas e test strength de 100% |
 | Checkstyle e Spotless | aprovados e integrados ao `check` |
 | `npm run docs:check` | 21 documentos, 39 requisitos e 47 tarefas aprovados |
 | `npm audit --audit-level=high` | 0 vulnerabilidades |
-| Docker Compose | build e healthchecks da API, PostgreSQL e WireMock aprovados |
-| Hardening do container | root filesystem read-only e processo executado pelo UID `10001` |
+| Docker Compose | API saudável, Flyway `1:true` e quatro tabelas core confirmadas |
+| Isolamento PostgreSQL | `5432/tcp` sem binding no host |
 | Trivy 0.72.0 | 0 achados corrigíveis HIGH/CRITICAL no Alpine e no JAR |
 
-## 5. Decisões do domínio
+`test` exclui a tag `integration`; `integrationTest` executa somente essa tag. O
+`check` executa as duas camadas e agrega seus arquivos JaCoCo antes de aplicar o gate.
 
-- `Money` representa apenas quantias estritamente positivas de transferência.
-- saldo é um decimal não negativo separado de `Money` e pode chegar a zero;
-- IDs de usuário e carteira são positivos; transferências usam ULID normalizado;
-- domínio não conhece JPA, Spring, HTTP, banco ou clientes externos;
-- operações retornam novos valores, preparando rollback transacional sem estado parcial;
-- o ledger registra exatamente duas partidas, com soma algébrica zero.
+## 6. Correção de sequenciamento
 
-## 6. Próximo incremento
+O status anterior associava portas, unit of work e autorização às tarefas
+T-201–T-205. Esses IDs pertencem ao épico HTTP/API. A implementação voltou à ordem
+do backlog: T-301 funda o banco; T-302 cria o preflight; T-303 implementa a unidade
+transacional; T-401 integra o autorizador; T-403 fecha o caso de uso completo.
 
-1. T-201 — definir portas de entrada, saída e relógio/gerador de identificador.
-2. T-202 — implementar o caso de uso transacional de transferência.
-3. T-203 — integrar consulta ao autorizador com timeout e falhas tipadas.
-4. T-204 — persistir transferência, saldos e ledger atomicamente.
-5. T-205 — criar testes de aplicação com doubles, rollback e autorização.
+## 7. Próximo incremento
 
-A próxima onda só termina com concorrência e rollback validados por integração real
-no PostgreSQL, sem acoplar o núcleo financeiro ao framework.
+1. T-302 — implementar preflight tipado de usuários e carteiras.
+2. T-303 — persistir saldos, transferência e ledger em uma transação `REQUIRED`.
+3. T-303 — injetar falhas por etapa e provar rollback integral.
+4. T-304 — provar concorrência e ausência de overspending com locks reais.
+5. T-305 — incluir outbox no mesmo commit financeiro.
+
+A chamada externa continuará fora da transação monetária; todas as condições
+mutáveis serão revalidadas depois dos locks e antes de qualquer atualização.
