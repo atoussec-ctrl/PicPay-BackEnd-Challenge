@@ -1,0 +1,21 @@
+{
+  "name": "transfer-service-blueprint",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.14.0 <25",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "test": "python -m unittest discover -s tests -p \"test_*.py\"",
+    "docs:lint": "markdownlint-cli2 \"**/*.md\" \"#node_modules\"",
+    "openapi:lint": "redocly lint docs/openapi.yaml",
+    "traceability:check": "python scripts/check_docs.py",
+    "docs:check": "npm run test && npm run docs:lint && npm run openapi:lint && npm run traceability:check"
+  },
+  "devDependencies": {
+    "@redocly/cli": "2.39.0",
+    "markdownlint-cli2": "0.23.0"
+  }
+}
