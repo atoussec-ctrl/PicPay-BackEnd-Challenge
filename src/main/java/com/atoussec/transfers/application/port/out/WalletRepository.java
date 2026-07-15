@@ -10,4 +10,6 @@ public interface WalletRepository {
   Optional<Wallet> findByOwnerId(UserId ownerId);
 
   List<Wallet> lockByOwnerIds(UserId firstOwnerId, UserId secondOwnerId);
+
+  void update(Wallet wallet);
 }

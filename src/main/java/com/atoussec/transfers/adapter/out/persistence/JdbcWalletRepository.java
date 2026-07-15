@@ -50,6 +50,27 @@ public class JdbcWalletRepository implements WalletRepository {
         .list();
   }
 
+  @Override
+  public void update(Wallet wallet) {
+    Objects.requireNonNull(wallet, "wallet must not be null");
+    int updatedRows =
+        jdbcClient
+            .sql(
+                """
+                UPDATE wallets
+                SET balance = :balance,
+                    version = version + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id
+                  AND user_id = :ownerId
+                """)
+            .param("balance", wallet.balance())
+            .param("id", wallet.id().value())
+            .param("ownerId", wallet.ownerId().value())
+            .update();
+    JdbcAffectedRows.requireExactlyOne(updatedRows, "wallet update");
+  }
+
   private static Wallet mapWallet(ResultSet resultSet, int rowNumber) throws SQLException {
     return Wallet.of(
         WalletId.of(resultSet.getLong("id")),
