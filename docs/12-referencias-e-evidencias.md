@@ -28,7 +28,20 @@ concluir nada sobre o schema atual do response.
 A versão major é uma decisão; patch versions devem ser atualizadas por PR automatizada
 com testes. Não usar `latest` em imagem, plugin, action ou dependência de produção.
 
-## 4. Concorrência e transações
+## 4. Domínio financeiro e testes
+
+| Fonte | Evidência utilizada | Decisão |
+|---|---|---|
+| [BigDecimal Java 25](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/math/BigDecimal.html) | decimal exato imutável; `equals` considera valor e escala | escala canônica 2 e comparação numérica explícita |
+| [Especificação ULID](https://github.com/ulid/spec) | 26 caracteres Crockford Base32, case insensitive e primeiro caractere até `7` | validar forma canônica e normalizar para maiúsculas |
+| [PIT](https://pitest.org/) | mutation testing mede se os testes detectam alterações no código | mutation gate no domínio financeiro crítico |
+| [Plugin Gradle PIT](https://plugins.gradle.org/plugin/info.solidsoft.pitest) | integração versionada do PIT com Gradle | plugin travado e executado pelo `check` |
+
+O JaCoCo mede execução, enquanto o PIT verifica a força das asserções. Os dois gates
+são complementares: 100% de cobertura estrutural não basta se uma regra alterada
+continuar sendo aceita pelos testes.
+
+## 5. Concorrência e transações
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -40,7 +53,7 @@ com testes. Não usar `latest` em imagem, plugin, action ou dependência de prod
 não pode ser usado para ignorar uma carteira bloqueada, porque isso transformaria
 contenção em ausência/saldo incorreto.
 
-## 5. HTTP e contrato
+## 6. HTTP e contrato
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -53,7 +66,7 @@ O draft de idempotência estava expirado na data da revisão e continua sendo wo
 progress. A API documenta sua própria sintaxe, expiração, fingerprint, in-flight,
 resultados terminais e retryable em vez de depender de uma norma ainda não publicada.
 
-## 6. Segurança e supply chain
+## 7. Segurança e supply chain
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -66,7 +79,7 @@ resultados terminais e retryable em vez de depender de uma norma ainda não publ
 O threat model não substitui autenticação. Como ela está fora do desafio, a limitação
 de confiar no `payer` é explícita e deve ser removida antes de qualquer uso real.
 
-## 7. Observabilidade
+## 8. Observabilidade
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -75,7 +88,7 @@ de confiar no `payer` é explícita e deve ser removida antes de qualquer uso re
 As conventions evoluem. A instrumentação deve travar a versão emitida, testar nomes
 de métricas essenciais e planejar migração sem criar duas séries indefinidamente.
 
-## 8. Evidência → artefato → teste
+## 9. Evidência → artefato → teste
 
 | Evidência | Artefato | Teste/gate |
 |---|---|---|
@@ -89,7 +102,7 @@ de métricas essenciais e planejar migração sem criar duas séries indefinidam
 | API segura | threat model OWASP | SAST/SCA/DAST e testes de abuso |
 | build confiável | NIST/SLSA/GitHub | CI, SBOM, scan, assinatura e provenance |
 
-## 9. Cadência de revisão
+## 10. Cadência de revisão
 
 - antes de iniciar a implementação: versões da stack e contrato dos mocks;
 - em toda alteração arquitetural: ADR e fontes relacionadas;

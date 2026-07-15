@@ -1,64 +1,73 @@
 # Status da implementação
 
 - **Data-base:** 15/07/2026
-- **Marco atual:** Onda 0 — fundação executável
+- **Marco atual:** Onda 1 — núcleo financeiro puro
 
 ## 1. Resumo
 
-A Onda 0 entrega um walking skeleton executável com Java 25, Spring Boot 4.1,
-Gradle, PostgreSQL, Flyway, Docker Compose e stubs WireMock. A estrutura aplica
-arquitetura hexagonal desde o bootstrap e bloqueia regressões por formatação,
-análise estática, testes arquiteturais e cobertura mínima de 95%.
+A Onda 1 entrega o domínio financeiro imutável, independente de framework e criado
+por TDD. O incremento modela dinheiro decimal exato, usuários, carteiras,
+identificadores, políticas de elegibilidade, transferência e partidas de ledger.
 
-O fluxo financeiro de transferência ainda não está implementado. O próximo
-incremento começa pelo domínio, seguindo TDD e as tarefas T-101 a T-106.
+O fluxo valida que somente cliente ativo envia, ambos os participantes estão ativos,
+as carteiras pertencem aos usuários, o saldo é suficiente e cada transferência gera
+um débito e um crédito de sinais opostos. Falhas preservam as carteiras originais.
 
 ## 2. Backlog concluído
 
 | Tarefa | Estado | Evidência |
 |---|---|---|
-| T-001 | concluída | Gradle Wrapper, build Java 25 e pacotes hexagonais em `src/main/java` |
-| T-002 | concluída | Spotless, google-java-format e Checkstyle integrados ao `check` |
-| T-003 | concluída | Dockerfile multi-stage, usuário `10001`, root filesystem somente leitura e healthcheck |
-| T-004 | concluída | Compose com API, PostgreSQL 18 e WireMock, todos com healthcheck |
-| T-005 | concluída | profiles `local`, `test` e `prod` com configuração externalizável |
-| T-006 | concluída | ArchUnit valida a direção das dependências e a independência do domínio |
+| T-101 | concluída | `Money` usa `BigDecimal`, escala canônica 2 e limite `NUMERIC(19,2)` |
+| T-102 | concluída | `User`, `UserType`, `UserStatus` e fixtures determinísticas |
+| T-103 | concluída | `TransferCommand`, IDs numéricos positivos e ULID canônico |
+| T-104 | concluída | `TransferPolicy` valida participantes, status e tipo do pagador |
+| T-105 | concluída | `Wallet` imutável impede saldo negativo, overflow e mutação parcial |
+| T-106 | concluída | `Transfer` executa débito/crédito e cria ledger balanceado imutável |
+| T-502 | concluída | JaCoCo global mínimo de 95% e domínio crítico em 100% de linhas/branches |
+| T-503 | concluída | PIT integrado ao `check`, com mínimo de 80% e execução observada em 100% |
 
-Entregas antecipadas permanecem parciais: T-502 já possui gate JaCoCo global,
-mas ainda requer limites por pacote; T-504 já possui scan Trivy da imagem, mas
-ainda requer SAST, dependency scan e secret scan.
+A Onda 0 permanece concluída: Java 25, Spring Boot 4.1, Gradle, PostgreSQL,
+Flyway, Docker Compose, WireMock, arquitetura hexagonal e CI executável.
 
-## 3. Quality gates executados
+## 3. Evidência TDD
 
-| Gate | Resultado esperado e observado |
+1. RED: `compileTestJava` falhou porque os tipos financeiros ainda não existiam.
+2. GREEN: a implementação mínima tornou os cenários de domínio aprovados.
+3. REFACTOR: asserções foram centralizadas e os objetos permaneceram imutáveis.
+4. MUTATE: um teste inicialmente aceitava sinais invertidos no ledger; o cenário foi
+   fortalecido para exigir débito negativo e crédito positivo.
+
+## 4. Quality gates executados
+
+| Gate | Resultado observado |
 |---|---|
-| `./gradlew check --no-daemon` | build, testes, Checkstyle, Spotless, ArchUnit e JaCoCo aprovados |
-| JaCoCo | 100% de linhas e instruções no esqueleto; gate mínimo global de 95% aprovado |
-| `docker compose config --quiet` | configuração válida |
-| `docker compose up --build --detach --wait` | API, PostgreSQL e WireMock saudáveis |
-| `GET /actuator/health/liveness` | `200` e status `UP` |
-| `GET /actuator/health/readiness` | `200` e status `UP` |
-| `GET /api/v2/authorize` no WireMock | autorização positiva conforme contrato simulado |
-| `POST /api/v1/notify` no WireMock | notificação aceita conforme contrato simulado |
-| `docker compose exec -T api id` | processo executado pelo usuário não-root `10001` |
-| Trivy 0.72.0 | imagem final sem CVEs corrigíveis `HIGH` ou `CRITICAL`; JAR sem achados nessas severidades |
+| `./gradlew spotlessApply check --no-daemon --stacktrace` | aprovado |
+| JUnit | 60 testes, 0 falhas, 0 erros e 0 ignorados |
+| JaCoCo do domínio | 164/164 linhas e 44/44 branches, ambos 100% |
+| PIT do domínio | 60/60 mutações eliminadas, cobertura e test strength de 100% |
+| Checkstyle e Spotless | aprovados e integrados ao `check` |
+| `npm run docs:check` | 21 documentos, 39 requisitos e 47 tarefas aprovados |
+| `npm audit --audit-level=high` | 0 vulnerabilidades |
+| Docker Compose | build e healthchecks da API, PostgreSQL e WireMock aprovados |
+| Hardening do container | root filesystem read-only e processo executado pelo UID `10001` |
+| Trivy 0.72.0 | 0 achados corrigíveis HIGH/CRITICAL no Alpine e no JAR |
 
-## 4. Decisão operacional validada
+## 5. Decisões do domínio
 
-O PostgreSQL 18 alterou o layout da imagem oficial: o volume persistente deve
-ser montado em `/var/lib/postgresql`, enquanto `PGDATA` usa internamente o
-subdiretório versionado. O Compose segue esse layout para evitar volumes
-anônimos e falhas na inicialização.
+- `Money` representa apenas quantias estritamente positivas de transferência.
+- saldo é um decimal não negativo separado de `Money` e pode chegar a zero;
+- IDs de usuário e carteira são positivos; transferências usam ULID normalizado;
+- domínio não conhece JPA, Spring, HTTP, banco ou clientes externos;
+- operações retornam novos valores, preparando rollback transacional sem estado parcial;
+- o ledger registra exatamente duas partidas, com soma algébrica zero.
 
-## 5. Próximo incremento
+## 6. Próximo incremento
 
-1. T-101 — implementar `Money` com testes unitários e `BigDecimal`.
-2. T-102 — modelar `User`, tipos, status e fixtures.
-3. T-103 — implementar `TransferCommand` e identificadores.
-4. T-104 — implementar políticas de elegibilidade do pagador.
-5. T-105 — implementar saldo suficiente e invariantes monetárias.
-6. T-106 — criar o serviço de domínio puro com testes de débito e crédito.
+1. T-201 — definir portas de entrada, saída e relógio/gerador de identificador.
+2. T-202 — implementar o caso de uso transacional de transferência.
+3. T-203 — integrar consulta ao autorizador com timeout e falhas tipadas.
+4. T-204 — persistir transferência, saldos e ledger atomicamente.
+5. T-205 — criar testes de aplicação com doubles, rollback e autorização.
 
-O incremento só estará concluído quando os testes forem escritos antes da
-implementação, os mutation tests do domínio crítico estiverem preparados e o
-gate de cobertura mínima continuar aprovado.
+A próxima onda só termina com concorrência e rollback validados por integração real
+no PostgreSQL, sem acoplar o núcleo financeiro ao framework.
