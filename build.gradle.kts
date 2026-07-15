@@ -87,14 +87,32 @@ jacoco {
     toolVersion = "0.8.15"
 }
 
-tasks.test {
-    useJUnitPlatform()
+val integrationTest by tasks.registering(Test::class) {
+    description = "Runs integration tests."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("integration")
+    }
     jvmArgs("-javaagent:${mockitoAgent.asPath}")
-    finalizedBy(tasks.jacocoTestReport)
+    shouldRunAfter(tasks.test)
+}
+
+tasks.test {
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+    jvmArgs("-javaagent:${mockitoAgent.asPath}")
 }
 
 tasks.withType<JacocoReport>().configureEach {
-    dependsOn(tasks.test)
+    dependsOn(tasks.test, integrationTest)
+    executionData(
+        fileTree(layout.buildDirectory.dir("jacoco")) {
+            include("*.exec")
+        },
+    )
     reports {
         xml.required = true
         html.required = true
@@ -103,7 +121,12 @@ tasks.withType<JacocoReport>().configureEach {
 }
 
 tasks.withType<JacocoCoverageVerification>().configureEach {
-    dependsOn(tasks.test)
+    dependsOn(tasks.test, integrationTest)
+    executionData(
+        fileTree(layout.buildDirectory.dir("jacoco")) {
+            include("*.exec")
+        },
+    )
     violationRules {
         rule {
             limit {
@@ -146,5 +169,10 @@ pitest {
 }
 
 tasks.check {
-    dependsOn(tasks.jacocoTestCoverageVerification, tasks.named("pitest"))
+    dependsOn(
+        integrationTest,
+        tasks.jacocoTestCoverageVerification,
+        tasks.jacocoTestReport,
+        tasks.named("pitest"),
+    )
 }
