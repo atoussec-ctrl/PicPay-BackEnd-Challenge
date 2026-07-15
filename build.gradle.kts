@@ -7,6 +7,7 @@ plugins {
     jacoco
     checkstyle
     id("com.diffplug.spotless") version "8.8.0"
+    id("info.solidsoft.pitest") version "1.19.0"
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -114,9 +115,36 @@ tasks.withType<JacocoCoverageVerification>().configureEach {
                 minimum = "0.95".toBigDecimal()
             }
         }
+        rule {
+            element = "PACKAGE"
+            includes = listOf("com.atoussec.transfers.domain.*")
+            limit {
+                counter = "LINE"
+                minimum = "1.00".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                minimum = "1.00".toBigDecimal()
+            }
+        }
     }
 }
 
+pitest {
+    pitestVersion = "1.25.7"
+    junit5PluginVersion = "1.2.3"
+    addJUnitPlatformLauncher = false
+    targetClasses = setOf("com.atoussec.transfers.domain.*")
+    targetTests = setOf("com.atoussec.transfers.domain.*")
+    threads = 4
+    outputFormats = setOf("XML", "HTML")
+    timestampedReports = false
+    exportLineCoverage = true
+    mutationThreshold = 80
+    coverageThreshold = 100
+    failWhenNoMutations = true
+}
+
 tasks.check {
-    dependsOn(tasks.jacocoTestCoverageVerification)
+    dependsOn(tasks.jacocoTestCoverageVerification, tasks.named("pitest"))
 }
