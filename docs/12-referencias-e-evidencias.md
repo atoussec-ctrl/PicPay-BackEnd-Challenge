@@ -62,8 +62,12 @@ de escrita futuros; o domínio continua recusando entradas inválidas antes do b
 |---|---|---|
 | [PostgreSQL explicit locking](https://www.postgresql.org/docs/current/explicit-locking.html) | `FOR UPDATE` bloqueia escritores/lockers concorrentes; locks duram até o fim da transação | locks pessimistas nas duas carteiras |
 | [PostgreSQL deadlocks](https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-DEADLOCKS) | ordem consistente é a principal prevenção; PostgreSQL aborta uma vítima | aquisição por `user_id` crescente e retry limitado |
+| [PostgreSQL transaction isolation](https://www.postgresql.org/docs/current/transaction-iso.html) | `READ COMMITTED` é o padrão; `SELECT FOR UPDATE` espera e retorna a versão atualizada da linha | revalidar saldo sobre as carteiras bloqueadas |
 | [PostgreSQL SELECT](https://www.postgresql.org/docs/current/sql-select.html) | locking clauses suportam `NOWAIT`/`SKIP LOCKED` | `SKIP LOCKED` somente no claim da outbox, não em saldo |
 | [Spring declarative transactions](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative.html) | transações declarativas preservam o domínio sem dependência da infraestrutura; chamadas remotas normalmente não devem integrar o escopo transacional | preflight e autorização antes da unit of work monetária |
+| [Spring programmatic transactions](https://docs.spring.io/spring-framework/reference/data-access/transaction/programmatic.html) | `TransactionTemplate` é recomendado para fluxos imperativos e permite configurar propagação, isolamento e timeout | adapter `SpringTransactionExecutor` encapsula Spring fora da aplicação |
+| [Spring transaction propagation](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/tx-propagation.html) | `REQUIRED` cria uma transação física ou participa da transação externa | todos os repositories compartilham o mesmo commit |
+| [Spring rollback rules](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/rolling-back.html) | exceções não tratadas do tipo `RuntimeException` causam rollback por padrão | falhas de domínio, persistência e commit escapam da callback |
 
 `SKIP LOCKED` produz visão inconsistente e serve para tabelas semelhantes a fila. Ele
 não pode ser usado para ignorar uma carteira bloqueada, porque isso transformaria
