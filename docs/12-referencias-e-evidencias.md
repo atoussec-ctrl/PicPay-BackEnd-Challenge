@@ -41,7 +41,21 @@ O JaCoCo mede execução, enquanto o PIT verifica a força das asserções. Os d
 são complementares: 100% de cobertura estrutural não basta se uma regra alterada
 continuar sendo aceita pelos testes.
 
-## 5. Concorrência e transações
+## 5. Persistência e integridade
+
+| Fonte | Evidência utilizada | Decisão |
+|---|---|---|
+| [PostgreSQL numeric](https://www.postgresql.org/docs/current/datatype-numeric.html) | `numeric` é exato e recomendado para dinheiro; também aceita o valor especial `NaN` | usar `NUMERIC(19,2)` e recusar `NaN` por `CHECK` explícito |
+| [PostgreSQL constraints](https://www.postgresql.org/docs/current/ddl-constraints.html) | constraints nomeadas protegem unicidade, referências e predicados | nomes estáveis e invariantes como última linha de defesa |
+| [PostgreSQL CREATE TRIGGER](https://www.postgresql.org/docs/current/sql-createtrigger.html) | constraint triggers podem ser `DEFERRABLE INITIALLY DEFERRED` e executar no fim da transação | validar o par completo do ledger no commit |
+| [Flyway versioned migrations](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html) | migrations versionadas executam uma vez, possuem checksum e devem evoluir por roll-forward | `V1__create_core_schema.sql` imutável após integração |
+| [Spring JdbcClient](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/simple/JdbcClient.html) | facade suporta parâmetros nomeados, queries e updates via prepared statements | adapters JDBC pequenos e SQL explícito |
+| [Spring Boot Testcontainers](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html) | service connections fornecem detalhes JDBC do container ao contexto de teste | testes contra PostgreSQL 18 sem configuração manual de portas |
+
+Constraints não substituem o domínio. Elas protegem contra bugs, scripts e caminhos
+de escrita futuros; o domínio continua recusando entradas inválidas antes do banco.
+
+## 6. Concorrência e transações
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -53,7 +67,7 @@ continuar sendo aceita pelos testes.
 não pode ser usado para ignorar uma carteira bloqueada, porque isso transformaria
 contenção em ausência/saldo incorreto.
 
-## 6. HTTP e contrato
+## 7. HTTP e contrato
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -66,7 +80,7 @@ O draft de idempotência estava expirado na data da revisão e continua sendo wo
 progress. A API documenta sua própria sintaxe, expiração, fingerprint, in-flight,
 resultados terminais e retryable em vez de depender de uma norma ainda não publicada.
 
-## 7. Segurança e supply chain
+## 8. Segurança e supply chain
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -79,7 +93,7 @@ resultados terminais e retryable em vez de depender de uma norma ainda não publ
 O threat model não substitui autenticação. Como ela está fora do desafio, a limitação
 de confiar no `payer` é explícita e deve ser removida antes de qualquer uso real.
 
-## 8. Observabilidade
+## 9. Observabilidade
 
 | Fonte | Evidência utilizada | Decisão |
 |---|---|---|
@@ -88,7 +102,7 @@ de confiar no `payer` é explícita e deve ser removida antes de qualquer uso re
 As conventions evoluem. A instrumentação deve travar a versão emitida, testar nomes
 de métricas essenciais e planejar migração sem criar duas séries indefinidamente.
 
-## 9. Evidência → artefato → teste
+## 10. Evidência → artefato → teste
 
 | Evidência | Artefato | Teste/gate |
 |---|---|---|
@@ -102,7 +116,7 @@ de métricas essenciais e planejar migração sem criar duas séries indefinidam
 | API segura | threat model OWASP | SAST/SCA/DAST e testes de abuso |
 | build confiável | NIST/SLSA/GitHub | CI, SBOM, scan, assinatura e provenance |
 
-## 10. Cadência de revisão
+## 11. Cadência de revisão
 
 - antes de iniciar a implementação: versões da stack e contrato dos mocks;
 - em toda alteração arquitetural: ADR e fontes relacionadas;
