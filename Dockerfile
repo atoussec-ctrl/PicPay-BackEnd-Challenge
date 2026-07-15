@@ -8,7 +8,8 @@ COPY gradlew gradlew.bat build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
 COPY config ./config
 
-RUN chmod +x gradlew && ./gradlew --no-daemon dependencies
+RUN chmod +x gradlew \
+    && ./gradlew --no-daemon dependencies --configuration runtimeClasspath
 
 COPY src ./src
 
