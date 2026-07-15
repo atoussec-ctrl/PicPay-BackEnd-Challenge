@@ -1,0 +1,16 @@
+.git
+.github
+.gradle
+.idea
+.venv
+.vscode
+build
+coverage
+docs
+node_modules
+reports
+tests
+*.iml
+*.log
+package-lock.json
+package.json
