@@ -4,6 +4,7 @@ import static com.atoussec.transfers.domain.DomainAssertions.assertDomainError;
 import static com.atoussec.transfers.domain.DomainFixtures.blockedCustomer;
 import static com.atoussec.transfers.domain.DomainFixtures.customer;
 import static com.atoussec.transfers.domain.DomainFixtures.merchant;
+import static com.atoussec.transfers.domain.DomainFixtures.wallet;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
@@ -74,6 +75,49 @@ class TransferPolicyTest {
     assertThatNullPointerException().isThrownBy(() -> policy.validate(null, payer, payee));
     assertThatNullPointerException().isThrownBy(() -> policy.validate(command, null, payee));
     assertThatNullPointerException().isThrownBy(() -> policy.validate(command, payer, null));
+  }
+
+  @Test
+  void validatesWalletOwnershipAndDistinctIdentifiers() {
+    User payer = customer(4);
+    User payee = merchant(15);
+
+    assertThatCode(
+            () ->
+                policy.validateWallets(
+                    payer, payee, wallet(40, payer, "100.00"), wallet(150, payee, "0.00")))
+        .doesNotThrowAnyException();
+    assertDomainError(
+        DomainError.WALLET_OWNERSHIP_MISMATCH,
+        () ->
+            policy.validateWallets(
+                payer, payee, wallet(40, customer(5), "100.00"), wallet(150, payee, "0.00")));
+    assertDomainError(
+        DomainError.WALLET_OWNERSHIP_MISMATCH,
+        () ->
+            policy.validateWallets(
+                payer, payee, wallet(40, payer, "100.00"), wallet(40, payee, "0.00")));
+  }
+
+  @Test
+  void rejectsNullWalletValidationArguments() {
+    User payer = customer(4);
+    User payee = merchant(15);
+
+    assertThatNullPointerException()
+        .isThrownBy(
+            () ->
+                policy.validateWallets(
+                    null, payee, wallet(40, payer, "1.00"), wallet(150, payee, "0.00")));
+    assertThatNullPointerException()
+        .isThrownBy(
+            () ->
+                policy.validateWallets(
+                    payer, null, wallet(40, payer, "1.00"), wallet(150, payee, "0.00")));
+    assertThatNullPointerException()
+        .isThrownBy(() -> policy.validateWallets(payer, payee, null, wallet(150, payee, "0.00")));
+    assertThatNullPointerException()
+        .isThrownBy(() -> policy.validateWallets(payer, payee, wallet(40, payer, "1.00"), null));
   }
 
   private static TransferCommand command(User payer, User payee) {

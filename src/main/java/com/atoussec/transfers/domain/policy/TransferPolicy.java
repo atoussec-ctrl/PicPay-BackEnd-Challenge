@@ -4,6 +4,7 @@ import com.atoussec.transfers.domain.exception.DomainError;
 import com.atoussec.transfers.domain.exception.DomainException;
 import com.atoussec.transfers.domain.model.TransferCommand;
 import com.atoussec.transfers.domain.model.User;
+import com.atoussec.transfers.domain.model.Wallet;
 import java.util.Objects;
 
 public final class TransferPolicy {
@@ -21,6 +22,18 @@ public final class TransferPolicy {
     }
     if (!payer.canSend()) {
       throw new DomainException(DomainError.MERCHANT_CANNOT_TRANSFER);
+    }
+  }
+
+  public void validateWallets(User payer, User payee, Wallet payerWallet, Wallet payeeWallet) {
+    Objects.requireNonNull(payer, "payer must not be null");
+    Objects.requireNonNull(payee, "payee must not be null");
+    Objects.requireNonNull(payerWallet, "payer wallet must not be null");
+    Objects.requireNonNull(payeeWallet, "payee wallet must not be null");
+    boolean ownershipMismatch =
+        !payerWallet.ownerId().equals(payer.id()) || !payeeWallet.ownerId().equals(payee.id());
+    if (ownershipMismatch || payerWallet.id().equals(payeeWallet.id())) {
+      throw new DomainException(DomainError.WALLET_OWNERSHIP_MISMATCH);
     }
   }
 }

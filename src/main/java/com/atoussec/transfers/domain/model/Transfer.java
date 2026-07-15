@@ -1,7 +1,5 @@
 package com.atoussec.transfers.domain.model;
 
-import com.atoussec.transfers.domain.exception.DomainError;
-import com.atoussec.transfers.domain.exception.DomainException;
 import com.atoussec.transfers.domain.policy.TransferPolicy;
 import java.time.Instant;
 import java.util.List;
@@ -50,7 +48,7 @@ public final class Transfer {
     Objects.requireNonNull(policy, "policy must not be null");
 
     policy.validate(command, payer, payee);
-    validateWallets(payer, payee, payerWallet, payeeWallet);
+    policy.validateWallets(payer, payee, payerWallet, payeeWallet);
 
     Wallet debitedWallet = payerWallet.debit(command.amount());
     Wallet creditedWallet = payeeWallet.credit(command.amount());
@@ -62,15 +60,6 @@ public final class Transfer {
         new Transfer(
             id, command.payerId(), command.payeeId(), command.amount(), occurredAt, ledgerEntries);
     return new TransferExecution(transfer, debitedWallet, creditedWallet);
-  }
-
-  private static void validateWallets(
-      User payer, User payee, Wallet payerWallet, Wallet payeeWallet) {
-    boolean ownershipMismatch =
-        !payerWallet.ownerId().equals(payer.id()) || !payeeWallet.ownerId().equals(payee.id());
-    if (ownershipMismatch || payerWallet.id().equals(payeeWallet.id())) {
-      throw new DomainException(DomainError.WALLET_OWNERSHIP_MISMATCH);
-    }
   }
 
   public TransferId id() {
