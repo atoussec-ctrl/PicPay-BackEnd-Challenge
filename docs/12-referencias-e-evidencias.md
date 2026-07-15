@@ -51,6 +51,7 @@ continuar sendo aceita pelos testes.
 | [Flyway versioned migrations](https://documentation.red-gate.com/fd/versioned-migrations-273973333.html) | migrations versionadas executam uma vez, possuem checksum e devem evoluir por roll-forward | `V1__create_core_schema.sql` imutável após integração |
 | [Spring JdbcClient](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/jdbc/core/simple/JdbcClient.html) | facade suporta parâmetros nomeados, queries e updates via prepared statements | adapters JDBC pequenos e SQL explícito |
 | [Spring Boot Testcontainers](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html) | service connections fornecem detalhes JDBC do container ao contexto de teste | testes contra PostgreSQL 18 sem configuração manual de portas |
+| [Java Optional](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/util/Optional.html) | retorno destinado a representar explicitamente a ausência de resultado | repositories retornam `Optional`; aplicação traduz ausência para erro tipado |
 
 Constraints não substituem o domínio. Elas protegem contra bugs, scripts e caminhos
 de escrita futuros; o domínio continua recusando entradas inválidas antes do banco.
@@ -62,6 +63,7 @@ de escrita futuros; o domínio continua recusando entradas inválidas antes do b
 | [PostgreSQL explicit locking](https://www.postgresql.org/docs/current/explicit-locking.html) | `FOR UPDATE` bloqueia escritores/lockers concorrentes; locks duram até o fim da transação | locks pessimistas nas duas carteiras |
 | [PostgreSQL deadlocks](https://www.postgresql.org/docs/current/explicit-locking.html#LOCKING-DEADLOCKS) | ordem consistente é a principal prevenção; PostgreSQL aborta uma vítima | aquisição por `user_id` crescente e retry limitado |
 | [PostgreSQL SELECT](https://www.postgresql.org/docs/current/sql-select.html) | locking clauses suportam `NOWAIT`/`SKIP LOCKED` | `SKIP LOCKED` somente no claim da outbox, não em saldo |
+| [Spring declarative transactions](https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative.html) | transações declarativas preservam o domínio sem dependência da infraestrutura; chamadas remotas normalmente não devem integrar o escopo transacional | preflight e autorização antes da unit of work monetária |
 
 `SKIP LOCKED` produz visão inconsistente e serve para tabelas semelhantes a fila. Ele
 não pode ser usado para ignorar uma carteira bloqueada, porque isso transformaria
@@ -107,6 +109,7 @@ de métricas essenciais e planejar migração sem criar duas séries indefinidam
 | Evidência | Artefato | Teste/gate |
 |---|---|---|
 | merchant não envia | BR-005, `TransferPolicy` | unidade + API |
+| participante ausente | BR-004, `TransferPreflightService` | unidade fail-fast + PostgreSQL |
 | saldo sob concorrência | ADR-0002, lock ordenado | Testcontainers concorrente |
 | transação integral | BR-010, unit of work | fault injection por etapa |
 | ledger balanceado | BR-015, trigger diferido | migration/integration negative tests |
