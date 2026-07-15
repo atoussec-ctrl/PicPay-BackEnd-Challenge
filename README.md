@@ -40,6 +40,7 @@ A escolha é uma referência concreta para transformar as especificações em ta
 | [Runbook](docs/10-runbook.md) | operação, incidentes e recuperação |
 | [Contratos externos](docs/11-contratos-integracoes.md) | autorizador, notificador, schemas e classificação de falhas |
 | [Referências](docs/12-referencias-e-evidencias.md) | fontes primárias, data de consulta e impacto nas decisões |
+| [Status da implementação](docs/13-status-implementacao.md) | entregas concluídas, evidências e próximo incremento |
 | [ADRs](docs/adr/) | registro das decisões arquiteturais |
 
 ## Princípios de implementação
@@ -55,6 +56,19 @@ A escolha é uma referência concreta para transformar as especificações em ta
 ## Ordem recomendada de leitura
 
 Comece por `docs/01-product-spec.md`, valide as decisões em `docs/03-arquitetura.md` e execute o trabalho na ordem das ondas em `docs/09-roadmap-backlog.md`.
+
+## Executar a aplicação
+
+Pré-requisitos: Java 25 e Docker com Compose.
+
+```bash
+./gradlew check
+docker compose up --build --detach --wait
+curl --fail http://localhost:8080/actuator/health/readiness
+docker compose down --volumes --remove-orphans
+```
+
+No Windows, use `gradlew.bat check` no lugar de `./gradlew check`.
 
 ## Validar os artefatos
 

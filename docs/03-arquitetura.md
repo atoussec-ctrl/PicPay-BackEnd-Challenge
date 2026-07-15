@@ -210,7 +210,7 @@ O I/O do autorizador fica fora da transação para não manter locks durante uma
 ## 8. Estrutura de pacotes proposta
 
 ```text
-src/main/java/com/example/transfers/
+src/main/java/com/atoussec/transfers/
 ├── domain/
 │   ├── model/          Money, User, Wallet, Transfer, LedgerEntry
 │   ├── policy/         TransferPolicy
