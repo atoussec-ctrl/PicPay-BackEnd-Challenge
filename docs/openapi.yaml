@@ -1,0 +1,216 @@
+openapi: 3.1.1
+info:
+  title: Transfer Service API
+  version: 1.0.0
+  description: Contrato do fluxo de transferência do desafio backend.
+  license:
+    name: Unlicensed
+    identifier: LicenseRef-Unlicensed
+servers:
+  - url: http://{host}:{port}
+    description: Ambiente configurável; os defaults apontam para execução local.
+    variables:
+      host:
+        default: localhost
+      port:
+        default: '8080'
+security: []
+tags:
+  - name: Transfers
+    description: Operações de transferência entre carteiras.
+paths:
+  /transfer:
+    post:
+      tags: [Transfers]
+      operationId: createTransfer
+      summary: Transfere dinheiro entre duas carteiras
+      description: >-
+        Autoriza externamente e efetiva débito e crédito em uma transação ACID.
+        O header Idempotency-Key é recomendado, mas opcional para compatibilidade
+        com o contrato original do desafio.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransferRequest'
+            examples:
+              default:
+                value:
+                  value: 100.00
+                  payer: 4
+                  payee: 15
+      responses:
+        '201':
+          description: Transferência criada ou resposta terminal reproduzida idempotentemente
+          headers:
+            Location:
+              schema: { type: string }
+              example: /transfers/01J2NQ6C2NH3N4EW8V1KQF7WPM
+            Idempotency-Replayed:
+              description: Indica que status e body vieram de uma execução terminal anterior.
+              schema: { type: boolean }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          description: Transferência negada pelo autorizador
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404':
+          description: Usuário ou carteira não encontrado
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Chave idempotente reutilizada com outro payload ou operação em processamento
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: Regra de negócio violada
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429':
+          description: Limite de requisições excedido
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: Autorizador indisponível ou circuito aberto
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1 }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Chave opaca única por intenção de transferência.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  schemas:
+    CreateTransferRequest:
+      type: object
+      additionalProperties: false
+      required: [value, payer, payee]
+      properties:
+        value:
+          type: number
+          format: decimal
+          exclusiveMinimum: 0
+          multipleOf: 0.01
+          maximum: 99999999999999999.99
+        payer:
+          type: integer
+          format: int64
+          minimum: 1
+        payee:
+          type: integer
+          format: int64
+          minimum: 1
+    TransferResponse:
+      type: object
+      additionalProperties: false
+      required: [id, value, payer, payee, status, createdAt]
+      properties:
+        id:
+          type: string
+          description: ULID ordenável usado como identificador público.
+          pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+        value:
+          type: number
+          format: decimal
+          multipleOf: 0.01
+        payer:
+          type: integer
+          format: int64
+        payee:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [COMPLETED]
+        createdAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      additionalProperties: true
+      required: [type, title, status, code, detail, instance, timestamp, correlationId]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - SAME_ACCOUNT_TRANSFER
+            - USER_OR_WALLET_NOT_FOUND
+            - MERCHANT_CANNOT_TRANSFER
+            - INSUFFICIENT_FUNDS
+            - TRANSFER_NOT_AUTHORIZED
+            - AUTHORIZER_UNAVAILABLE
+            - IDEMPOTENCY_KEY_REUSED
+            - REQUEST_IN_PROGRESS
+            - RATE_LIMIT_EXCEEDED
+            - INTERNAL_ERROR
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        timestamp:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+        violations:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+  responses:
+    BadRequest:
+      description: JSON inválido, campos ausentes ou valores fora do formato
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
